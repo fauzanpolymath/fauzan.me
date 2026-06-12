@@ -66,52 +66,53 @@ Sam: [response]`;
       }
       const aiScript = data.candidates[0].content.parts[0].text;
 
-      // 6. Perform the script as speech with ElevenLabs (one voice per host)
-      if (!env.ELEVENLABS_API_KEY) {
-        throw new Error("ELEVENLABS_API_KEY secret is not set on this Worker.");
-      }
-      const VOICE_IDS = {
-        Alex: "pNInz6obpgDQGcFmaJgB", // Adam
-        Sam: "21m00Tcm4TlvDq8ikWAM",  // Rachel
+      // 6. Perform the script as speech with Google Cloud Text-to-Speech (one voice per host)
+      const VOICE_NAMES = {
+        Alex: "en-US-Neural2-D", // male
+        Sam: "en-US-Neural2-F",  // female
       };
 
       const lines = aiScript.split("\n").map(l => l.trim()).filter(Boolean);
-      const audioBuffers = [];
+      const audioChunks = [];
       for (const line of lines) {
         const match = line.match(/^(Alex|Sam):\s*(.+)$/);
         if (!match) continue;
         const [, speaker, text] = match;
-        const voiceId = VOICE_IDS[speaker];
+        const voiceName = VOICE_NAMES[speaker];
 
-        const elResponse = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${voiceId}`, {
+        const ttsRes = await fetch(`https://texttospeech.googleapis.com/v1/text:synthesize?key=${env.GEMINI_API_KEY.trim()}`, {
           method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "xi-api-key": env.ELEVENLABS_API_KEY.trim(),
-          },
+          headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            text,
-            model_id: "eleven_turbo_v2_5",
+            input: { text },
+            voice: { languageCode: "en-US", name: voiceName },
+            audioConfig: { audioEncoding: "MP3" },
           }),
         });
 
-        if (!elResponse.ok) {
-          const errText = await elResponse.text();
-          throw new Error(`ElevenLabs HTTP ${elResponse.status}: ${errText.slice(0, 300)}`);
+        const ttsRawText = await ttsRes.text();
+        let ttsJson;
+        try {
+          ttsJson = JSON.parse(ttsRawText);
+        } catch {
+          throw new Error(`Google TTS HTTP ${ttsRes.status}: ${ttsRawText.slice(0, 300) || '(empty body)'}`);
         }
-        audioBuffers.push(await elResponse.arrayBuffer());
+        if (!ttsJson.audioContent) {
+          throw new Error(ttsJson.error?.message || "Google TTS returned no audio: " + JSON.stringify(ttsJson));
+        }
+        audioChunks.push(Uint8Array.from(atob(ttsJson.audioContent), c => c.charCodeAt(0)));
       }
 
-      if (audioBuffers.length === 0) {
+      if (audioChunks.length === 0) {
         throw new Error("No audio lines were generated from the script: " + aiScript);
       }
 
-      const totalLength = audioBuffers.reduce((sum, b) => sum + b.byteLength, 0);
+      const totalLength = audioChunks.reduce((sum, b) => sum + b.length, 0);
       const combined = new Uint8Array(totalLength);
       let offset = 0;
-      for (const buf of audioBuffers) {
-        combined.set(new Uint8Array(buf), offset);
-        offset += buf.byteLength;
+      for (const chunk of audioChunks) {
+        combined.set(chunk, offset);
+        offset += chunk.length;
       }
 
       let binary = "";
