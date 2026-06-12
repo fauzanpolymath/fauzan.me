@@ -68,8 +68,8 @@ Sam: [response]`;
 
       // 6. Perform the script as speech with Google Cloud Text-to-Speech (one voice per host)
       const VOICE_NAMES = {
-        Alex: "en-US-Neural2-D", // male
-        Sam: "en-US-Neural2-F",  // female
+        Alex: "en-US-Chirp3-HD-Charon", // male
+        Sam: "en-US-Chirp3-HD-Leda",    // female
       };
 
       const lines = aiScript.split("\n").map(l => l.trim()).filter(Boolean);
