@@ -93,6 +93,23 @@ nav{
   font-size:7px;padding-left:2px;flex-shrink:0;
 }
 .hero-listen-dur{color:var(--accent);font-weight:500}
+.hero-ask-row{display:flex;gap:.6rem;margin-top:1rem}
+.hero-ask-input{width:300px;padding:12px 16px;border-radius:100px;border:1px solid var(--line);font-family:var(--ff-sans);font-size:.85rem;background:#fff;color:var(--ink)}
+.hero-ask-input:focus{outline:none;border-color:var(--accent)}
+.hero-ask-btn{padding:12px 22px;border-radius:100px;border:none;background:var(--ink);color:#fff;font-family:var(--ff-sans);font-size:.85rem;font-weight:500;cursor:pointer;transition:opacity .2s}
+.hero-ask-btn:hover{opacity:.85}
+.hero-ask-btn:disabled{opacity:.5;cursor:default}
+.hero-stop-btn{background:#C8471A}
+.hero-ask-status-row{display:flex;align-items:center;gap:.6rem;margin-top:.7rem;max-width:520px}
+.hero-ask-status{font-size:.8rem;color:var(--ink2);white-space:pre-line;margin:0}
+.hero-waveform{display:flex;align-items:center;gap:3px;height:18px;flex-shrink:0}
+.hero-waveform span{display:block;width:3px;height:100%;background:var(--accent);border-radius:2px;animation:hero-wave 0.9s ease-in-out infinite}
+.hero-waveform span:nth-child(1){animation-delay:-0.8s}
+.hero-waveform span:nth-child(2){animation-delay:-0.6s}
+.hero-waveform span:nth-child(3){animation-delay:-0.4s}
+.hero-waveform span:nth-child(4){animation-delay:-0.2s}
+.hero-waveform span:nth-child(5){animation-delay:0s}
+@keyframes hero-wave{0%,100%{transform:scaleY(0.3)}50%{transform:scaleY(1)}}
 .hero-divider{
   padding:1.5rem 0;text-align:center;
   font-size:.68rem;letter-spacing:.12em;text-transform:uppercase;
@@ -319,11 +336,22 @@ footer{background:var(--dark);border-top:1px solid rgba(255,255,255,.06);padding
       I'm <strong>Fauzan Battiwala</strong>, a Data &amp; Business Analyst at <strong>Kobet Technology</strong>.
       This site is an experiment in turning case studies into conversations — with a little help from AI.
     </p>
-    <button class="hero-listen-btn" onclick="document.getElementById('podcast').scrollIntoView({behavior:'smooth'})">
-      <span class="hero-listen-icon">&#9654;</span>
-      Start Listening
-      <span class="hero-listen-dur">&middot; 28 mins</span>
+    <button class="hero-listen-btn" id="heroListenBtn" onclick="toggleIntro()">
+      <span class="hero-listen-icon" id="heroListenIcon">&#9654;</span>
+      <span id="heroListenLabel">Start Listening</span>
+      <span class="hero-listen-dur">&middot; 6 min intro</span>
     </button>
+    <div class="hero-ask-row">
+      <input class="hero-ask-input" id="heroAskInput" type="text" placeholder="Ask a question about Fauzan…" onkeydown="if(event.key==='Enter')heroAsk()"/>
+      <button class="hero-ask-btn" onclick="heroAsk()">Ask</button>
+      <button class="hero-ask-btn hero-stop-btn" id="heroStopBtn" onclick="stopPodcastAudio()" style="display:none">Stop</button>
+    </div>
+    <div class="hero-ask-status-row">
+      <div class="hero-waveform" id="heroWaveform" style="display:none">
+        <span></span><span></span><span></span><span></span><span></span>
+      </div>
+      <p class="hero-ask-status" id="heroAskStatus"></p>
+    </div>
   </div>
   <div class="hero-divider">Scroll to explore</div>
 </section>
@@ -768,8 +796,180 @@ async function sendChat(){
 
 function askQ(q){
   document.getElementById('chatInput').value = q;
-  document.getElementById('ask').scrollIntoView({behavior:'smooth'});
+  document.getElementById('podcast').scrollIntoView({behavior:'smooth'});
   setTimeout(sendChat, 500);
+}
+
+const PODCAST_WORKER_URL = 'https://fauzan-podcast-worker.fauzan-battiwala.workers.dev';
+
+const loadingMessages = [
+  '🎙️ Booking the studio...',
+  '☕ Pouring coffee for Alex and Sam...',
+  '🎚️ Adjusting the mics...',
+  '✂️ Final edits...',
+];
+
+function startLoadingMessages(){
+  const status = document.getElementById('heroAskStatus');
+  const waveform = document.getElementById('heroWaveform');
+  waveform.style.display = 'flex';
+  let msgIndex = 0;
+  status.textContent = loadingMessages[0];
+  return setInterval(() => {
+    msgIndex = (msgIndex + 1) % loadingMessages.length;
+    status.textContent = loadingMessages[msgIndex];
+  }, 2200);
+}
+
+function stopLoadingMessages(interval){
+  clearInterval(interval);
+  document.getElementById('heroWaveform').style.display = 'none';
+}
+
+async function heroAsk(){
+  const inp = document.getElementById('heroAskInput');
+  const btn = document.querySelector('.hero-ask-btn');
+  const status = document.getElementById('heroAskStatus');
+  const q = inp.value.trim();
+  if(!q){ status.textContent = 'Please type a question first!'; return; }
+
+  // If the intro podcast is currently playing, let it keep playing while we
+  // prepare the interrupt — we'll swap to the answer the moment it's ready
+  const interrupting = podcastAudioPlayer && !podcastAudioPlayer.paused && (currentAudioMode === 'intro' || currentAudioMode === 'intro_part1');
+
+  btn.disabled = true;
+  const loadingInterval = startLoadingMessages();
+
+  try {
+    const r = await fetch(PODCAST_WORKER_URL, {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({question: q, mode: interrupting ? 'interrupt' : undefined})
+    });
+    const d = await r.json();
+    stopLoadingMessages(loadingInterval);
+    if(d.audio){
+      status.textContent = interrupting ? '🎙️ Breaking in with your question...' : '🎙️ On Air: Playing Podcast...';
+      playPodcastAudio(d.audio, 'answer');
+    } else {
+      status.textContent = d.error || "❌ The robots gave an empty response.";
+    }
+  } catch(e) {
+    stopLoadingMessages(loadingInterval);
+    status.textContent = '❌ Oh no! The robots got confused. Try again.';
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+let podcastAudioPlayer = null;
+let currentAudioMode = null; // 'intro', 'intro_part1', or 'answer'
+let introPart2Promise = null;
+
+async function toggleIntro(){
+  const icon = document.getElementById('heroListenIcon');
+  const label = document.getElementById('heroListenLabel');
+  const status = document.getElementById('heroAskStatus');
+
+  // Resume/pause if intro audio is already loaded
+  if(podcastAudioPlayer && (currentAudioMode === 'intro' || currentAudioMode === 'intro_part1') && podcastAudioPlayer.src){
+    if(podcastAudioPlayer.paused){
+      podcastAudioPlayer.play();
+      icon.innerHTML = '&#10074;&#10074;';
+      label.textContent = 'Pause Intro';
+      document.getElementById('heroStopBtn').style.display = 'inline-block';
+      status.textContent = '🎙️ On Air: Playing intro...';
+    } else {
+      podcastAudioPlayer.pause();
+      icon.innerHTML = '&#9654;';
+      label.textContent = 'Resume Intro';
+    }
+    return;
+  }
+
+  // Otherwise fetch part 1 of the intro first so playback can start almost instantly,
+  // while part 2 (the bulk of the episode) generates in parallel
+  const loadingInterval = startLoadingMessages();
+
+  // Kick off part 2 in the background — don't await yet
+  introPart2Promise = fetch(PODCAST_WORKER_URL, {
+    method: 'POST',
+    headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({mode: 'intro_part2'})
+  }).then(r => r.json());
+
+  try {
+    const r = await fetch(PODCAST_WORKER_URL, {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({mode: 'intro_part1'})
+    });
+    const d = await r.json();
+    stopLoadingMessages(loadingInterval);
+    if(d.audio){
+      status.textContent = '🎙️ On Air: Playing intro...';
+      playPodcastAudio(d.audio, 'intro_part1');
+      icon.innerHTML = '&#10074;&#10074;';
+      label.textContent = 'Pause Intro';
+    } else {
+      status.textContent = d.error || "❌ The robots gave an empty response.";
+    }
+  } catch(e) {
+    stopLoadingMessages(loadingInterval);
+    status.textContent = '❌ Oh no! The robots got confused. Try again.';
+  }
+}
+
+// Plays base64 mp3 audio returned by the worker. mode is 'intro_part1', 'intro_part2', or 'answer'
+function playPodcastAudio(audioBase64, mode){
+  if(!podcastAudioPlayer){
+    podcastAudioPlayer = new Audio();
+  }
+  currentAudioMode = mode === 'intro_part2' ? 'intro' : mode;
+  podcastAudioPlayer.onended = async () => {
+    if(mode === 'intro_part1'){
+      // Part 1 finished — wait for part 2 (likely already ready) and continue seamlessly
+      const status = document.getElementById('heroAskStatus');
+      status.textContent = '🎙️ On Air: Playing intro...';
+      try {
+        const d = await introPart2Promise;
+        if(d && d.audio){
+          playPodcastAudio(d.audio, 'intro_part2');
+          return;
+        }
+      } catch(e) {}
+      // Fall through if part 2 failed
+    }
+    document.getElementById('heroStopBtn').style.display = 'none';
+    if(mode === 'intro_part2'){
+      document.getElementById('heroAskStatus').textContent = '🎉 Intro finished!';
+      document.getElementById('heroListenIcon').innerHTML = '&#9654;';
+      document.getElementById('heroListenLabel').textContent = 'Start Listening';
+      currentAudioMode = null;
+    } else if(mode === 'intro_part1'){
+      document.getElementById('heroAskStatus').textContent = '🎉 Intro finished!';
+      document.getElementById('heroListenIcon').innerHTML = '&#9654;';
+      document.getElementById('heroListenLabel').textContent = 'Start Listening';
+      currentAudioMode = null;
+    } else {
+      document.getElementById('heroAskStatus').textContent = '🎉 Podcast finished!';
+    }
+  };
+  podcastAudioPlayer.src = `data:audio/mpeg;base64,${audioBase64}`;
+  podcastAudioPlayer.play();
+  document.getElementById('heroStopBtn').style.display = 'inline-block';
+}
+
+function stopPodcastAudio(){
+  if(podcastAudioPlayer){
+    podcastAudioPlayer.pause();
+    podcastAudioPlayer.currentTime = 0;
+  }
+  document.getElementById('heroAskStatus').textContent = '⏹️ Podcast stopped.';
+  document.getElementById('heroStopBtn').style.display = 'none';
+  document.getElementById('heroListenIcon').innerHTML = '&#9654;';
+  document.getElementById('heroListenLabel').textContent = 'Start Listening';
+  currentAudioMode = null;
 }
 
 function addMsg(role, text){
@@ -792,4 +992,17 @@ function submitForm(){
   const e=document.getElementById('cEmail').value.trim();
   const m=document.getElementById('cMsg').value.trim();
   const note=document.getElementById('formNote');
-  if(!n||!e||!m){note.style.color='#C8471A';note.textContent='Please fill in nam
+  if(!n||!e||!m){
+    note.style.color='#C8471A';
+    note.textContent='Please fill in name, email, and message.';
+    return;
+  }
+  const subject = encodeURIComponent('Portfolio enquiry from ' + n);
+  const body = encodeURIComponent(m + '\n\n— ' + n + ' (' + e + ')');
+  window.location.href = `mailto:fauzan.battiwala@gmail.com?subject=${subject}&body=${body}`;
+  note.style.color = 'var(--ink2)';
+  note.textContent = 'Opening your email client…';
+}
+</script>
+</body>
+</html>
