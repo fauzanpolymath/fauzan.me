@@ -99,6 +99,7 @@ nav{
 .hero-ask-btn{padding:12px 22px;border-radius:100px;border:none;background:var(--ink);color:#fff;font-family:var(--ff-sans);font-size:.85rem;font-weight:500;cursor:pointer;transition:opacity .2s}
 .hero-ask-btn:hover{opacity:.85}
 .hero-ask-btn:disabled{opacity:.5;cursor:default}
+.hero-stop-btn{background:#C8471A}
 .hero-ask-status{margin-top:.7rem;font-size:.8rem;color:var(--ink2);white-space:pre-line;max-width:520px}
 .hero-divider{
   padding:1.5rem 0;text-align:center;
@@ -334,6 +335,7 @@ footer{background:var(--dark);border-top:1px solid rgba(255,255,255,.06);padding
     <div class="hero-ask-row">
       <input class="hero-ask-input" id="heroAskInput" type="text" placeholder="Ask a question about Fauzan…" onkeydown="if(event.key==='Enter')heroAsk()"/>
       <button class="hero-ask-btn" onclick="heroAsk()">Ask</button>
+      <button class="hero-ask-btn hero-stop-btn" id="heroStopBtn" onclick="stopPodcastAudio()" style="display:none">Stop</button>
     </div>
     <p class="hero-ask-status" id="heroAskStatus"></p>
   </div>
@@ -805,6 +807,7 @@ async function heroAsk(){
     const d = await r.json();
     if(d.script){
       status.textContent = '🎙️ On Air: Playing Podcast...';
+      document.getElementById('heroStopBtn').style.display = 'inline-block';
       playPodcastAudio(d.script);
     } else {
       status.textContent = d.error || "❌ The robots gave an empty response.";
@@ -824,6 +827,7 @@ function playPodcastAudio(scriptText){
   function speakLine(){
     if(lineIndex >= lines.length){
       document.getElementById('heroAskStatus').textContent = '🎉 Podcast finished!';
+      document.getElementById('heroStopBtn').style.display = 'none';
       return;
     }
 
@@ -858,6 +862,12 @@ function playPodcastAudio(scriptText){
   } else {
     speakLine();
   }
+}
+
+function stopPodcastAudio(){
+  window.speechSynthesis.cancel();
+  document.getElementById('heroAskStatus').textContent = '⏹️ Podcast stopped.';
+  document.getElementById('heroStopBtn').style.display = 'none';
 }
 
 function addMsg(role, text){
