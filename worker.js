@@ -32,50 +32,25 @@ At Kobet Technologies DMCC (Oct 2024-Mar 2026), a fintech marketplace with 14 gi
 Independently, he built a maritime document automation pipeline (83% faster processing), HarbourMind (a FastAPI + Gemini 2.5 Flash service with a 32x async speedup), and an end-to-end encrypted React Native messaging app. He holds an MBA from Welingkar Institute, a BBA in Computer Applications, and is a Six Sigma Green Belt. His core philosophy: find the truth in the data, redesign the system around it, automate what should be automated, govern what you automate, and prove the result with numbers. His website is fauzan.me.`;
 
       // 4. Craft the secret instructions for Gemini
+      if (!env.GEMINI_API_KEY) {
+        throw new Error("GEMINI_API_KEY secret is not set on this Worker.");
+      }
       const prompt = `You are two funny, energetic AI podcast hosts named Alex and Sam.
 Review this profile data about Fauzan: "${fauzanProfile}".
 A website visitor just asked this question: "${question}".
-Have a brief, 2-sentence dialogue answering the question directly based on his profile.
+Improvise a brief, 2-sentence dialogue answering the question directly based on his profile, then perform it as speech.
 Format it strictly like this:
 Alex: [response]
 Sam: [response]`;
 
-      // 5. Send everything to Google Gemini using your secret key
-      if (!env.GEMINI_API_KEY) {
-        throw new Error("GEMINI_API_KEY secret is not set on this Worker.");
-      }
-      const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${env.GEMINI_API_KEY.trim()}`;
-
-      const response = await fetch(geminiUrl, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({
-          contents: [{ parts: [{ text: prompt }] }]
-        })
-      });
-
-      const rawText = await response.text();
-      let data;
-      try {
-        data = JSON.parse(rawText);
-      } catch {
-        throw new Error(`Gemini HTTP ${response.status}: ${rawText.slice(0, 300) || '(empty body)'}`);
-      }
-      if (!data.candidates || !data.candidates[0]) {
-        throw new Error(data.error?.message || "Gemini returned no response: " + JSON.stringify(data));
-      }
-      const aiScript = data.candidates[0].content.parts[0].text;
-
-      // 6. Turn the script into real podcast audio using Gemini's TTS model
+      // 5. Send everything to Gemini's TTS model in one go — it writes AND performs the dialogue
       const ttsUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-tts:generateContent?key=${env.GEMINI_API_KEY.trim()}`;
 
       const ttsResponse = await fetch(ttsUrl, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          contents: [{ parts: [{ text: `TTS the following conversation between Alex and Sam:\n${aiScript}` }] }],
+          contents: [{ parts: [{ text: prompt }] }],
           generationConfig: {
             responseModalities: ["AUDIO"],
             speechConfig: {
@@ -107,8 +82,8 @@ Sam: [response]`;
       const sampleRate = rateMatch ? parseInt(rateMatch[1], 10) : 24000;
       const wavBase64 = pcmToWavBase64(audioPart.inlineData.data, sampleRate);
 
-      // 7. Send the finished script and audio back to your website!
-      return new Response(JSON.stringify({ script: aiScript, audio: wavBase64 }), {
+      // 7. Send the finished audio back to your website!
+      return new Response(JSON.stringify({ audio: wavBase64 }), {
         headers: {
           "Content-Type": "application/json",
           "Access-Control-Allow-Origin": "*",
