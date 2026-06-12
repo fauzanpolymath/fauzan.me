@@ -833,9 +833,9 @@ async function heroAsk(){
   const q = inp.value.trim();
   if(!q){ status.textContent = 'Please type a question first!'; return; }
 
-  // If the intro podcast is currently playing, interrupt it for this question
+  // If the intro podcast is currently playing, let it keep playing while we
+  // prepare the interrupt — we'll swap to the answer the moment it's ready
   const interrupting = podcastAudioPlayer && !podcastAudioPlayer.paused && currentAudioMode === 'intro';
-  if(podcastAudioPlayer) podcastAudioPlayer.pause();
 
   btn.disabled = true;
   const loadingInterval = startLoadingMessages();
