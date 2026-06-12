@@ -805,10 +805,10 @@ async function heroAsk(){
       body: JSON.stringify({question: q})
     });
     const d = await r.json();
-    if(d.script){
+    if(d.audio){
       status.textContent = '🎙️ On Air: Playing Podcast...';
       document.getElementById('heroStopBtn').style.display = 'inline-block';
-      playPodcastAudio(d.script);
+      playPodcastAudio(d.audio);
     } else {
       status.textContent = d.error || "❌ The robots gave an empty response.";
     }
@@ -819,53 +819,26 @@ async function heroAsk(){
   }
 }
 
-// The magic voice machine player
-function playPodcastAudio(scriptText){
-  const lines = scriptText.split('\n').filter(line => line.trim() !== '');
-  let lineIndex = 0;
+let podcastAudioPlayer = null;
 
-  function speakLine(){
-    if(lineIndex >= lines.length){
+// Plays the base64 WAV audio returned by the worker
+function playPodcastAudio(audioBase64){
+  if(!podcastAudioPlayer){
+    podcastAudioPlayer = new Audio();
+    podcastAudioPlayer.onended = () => {
       document.getElementById('heroAskStatus').textContent = '🎉 Podcast finished!';
       document.getElementById('heroStopBtn').style.display = 'none';
-      return;
-    }
-
-    const currentLine = lines[lineIndex];
-    let textToSpeak = currentLine;
-    let selectedVoice = null;
-
-    const voices = window.speechSynthesis.getVoices();
-
-    if(currentLine.startsWith('Alex:')){
-      textToSpeak = currentLine.replace('Alex:', '').trim();
-      selectedVoice = voices.find(v => v.name.includes('Google US English') || v.lang.startsWith('en-US')) || voices[0];
-    } else if(currentLine.startsWith('Sam:')){
-      textToSpeak = currentLine.replace('Sam:', '').trim();
-      selectedVoice = voices.find(v => v.name.includes('Google UK English Female') || v.name.includes('Zira') || v.lang.startsWith('en-GB')) || voices[1] || voices[0];
-    }
-
-    const utterance = new SpeechSynthesisUtterance(textToSpeak);
-    if(selectedVoice) utterance.voice = selectedVoice;
-    utterance.rate = 1.1;
-
-    utterance.onend = () => {
-      lineIndex++;
-      speakLine();
     };
-
-    window.speechSynthesis.speak(utterance);
   }
-
-  if(window.speechSynthesis.getVoices().length === 0){
-    window.speechSynthesis.onvoiceschanged = speakLine;
-  } else {
-    speakLine();
-  }
+  podcastAudioPlayer.src = `data:audio/wav;base64,${audioBase64}`;
+  podcastAudioPlayer.play();
 }
 
 function stopPodcastAudio(){
-  window.speechSynthesis.cancel();
+  if(podcastAudioPlayer){
+    podcastAudioPlayer.pause();
+    podcastAudioPlayer.currentTime = 0;
+  }
   document.getElementById('heroAskStatus').textContent = '⏹️ Podcast stopped.';
   document.getElementById('heroStopBtn').style.display = 'none';
 }
