@@ -831,4 +831,17 @@ function submitForm(){
   const e=document.getElementById('cEmail').value.trim();
   const m=document.getElementById('cMsg').value.trim();
   const note=document.getElementById('formNote');
-  if(!n||!e||!m){note.style.color='#C8471A';note.textContent='Please fill in nam
+  if(!n||!e||!m){
+    note.style.color='#C8471A';
+    note.textContent='Please fill in name, email, and message.';
+    return;
+  }
+  const subject = encodeURIComponent('Portfolio enquiry from ' + n);
+  const body = encodeURIComponent(m + '\n\n— ' + n + ' (' + e + ')');
+  window.location.href = `mailto:fauzan.battiwala@gmail.com?subject=${subject}&body=${body}`;
+  note.style.color = 'var(--ink2)';
+  note.textContent = 'Opening your email client…';
+}
+</script>
+</body>
+</html>
