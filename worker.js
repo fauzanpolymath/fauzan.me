@@ -80,7 +80,10 @@ Sam: [response]`;
         const [, speaker, text] = match;
         const voiceName = VOICE_NAMES[speaker];
 
-        const ttsRes = await fetch(`https://texttospeech.googleapis.com/v1/text:synthesize?key=${env.GEMINI_API_KEY.trim()}`, {
+        if (!env.GOOGLE_TTS_API_KEY) {
+          throw new Error("GOOGLE_TTS_API_KEY secret is not set on this Worker.");
+        }
+        const ttsRes = await fetch(`https://texttospeech.googleapis.com/v1/text:synthesize?key=${env.GOOGLE_TTS_API_KEY.trim()}`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
