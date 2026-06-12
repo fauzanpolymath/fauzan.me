@@ -44,6 +44,9 @@ Sam: [response]`;
       });
 
       const data = await response.json();
+      if (!data.candidates || !data.candidates[0]) {
+        throw new Error(data.error?.message || "Gemini returned no response: " + JSON.stringify(data));
+      }
       const aiScript = data.candidates[0].content.parts[0].text;
 
       // 6. Send the finished script back to your website!
