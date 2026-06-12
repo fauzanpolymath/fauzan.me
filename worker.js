@@ -16,8 +16,8 @@ export default {
     }
 
     try {
-      // 2. Grab the question the visitor typed
-      const { question } = await request.json();
+      // 2. Grab the question the visitor typed (if any) and the requested mode
+      const { question, mode } = await request.json();
 
       // 3. This is the background information about you!
       // (You can tell Claude to add more details about your achievements here)
@@ -31,11 +31,52 @@ At Kobet Technologies DMCC (Oct 2024-Mar 2026), a fintech marketplace with 14 gi
 
 Independently, he built a maritime document automation pipeline (83% faster processing), HarbourMind (a FastAPI + Gemini 2.5 Flash service with a 32x async speedup), and an end-to-end encrypted React Native messaging app. He holds an MBA from Welingkar Institute, a BBA in Computer Applications, and is a Six Sigma Green Belt. His core philosophy: find the truth in the data, redesign the system around it, automate what should be automated, govern what you automate, and prove the result with numbers. His website is fauzan.me.`;
 
-      // 4. Craft the secret instructions for Gemini
-      if (!env.GEMINI_API_KEY) {
-        throw new Error("GEMINI_API_KEY secret is not set on this Worker.");
-      }
-      const prompt = `You are two funny, energetic AI podcast hosts named Alex and Sam.
+      let aiScript;
+
+      if (mode === "interrupt") {
+        // 4a. A visitor interrupted the intro podcast with their own question
+        if (!env.GEMINI_API_KEY) {
+          throw new Error("GEMINI_API_KEY secret is not set on this Worker.");
+        }
+        const prompt = `You are two funny, energetic AI podcast hosts named Alex and Sam, mid-way through recording an introductory episode about Fauzan.
+Review this profile data about Fauzan: "${fauzanProfile}".
+A website visitor just interrupted with this question: "${question}".
+Write a brief dialogue where Alex first reacts with excitement that a visitor has sent in a question live, then Sam reads it out, then both hosts give a 2-sentence answer based on his profile, then wrap up warmly.
+Format it strictly like this, with each line starting with the speaker name:
+Alex: [reaction]
+Sam: [reads out the question and answers]
+Alex: [answers]
+Sam: [wrap-up]`;
+
+        const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${env.GEMINI_API_KEY.trim()}`;
+        const response = await fetch(geminiUrl, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
+        });
+
+        const rawText = await response.text();
+        let data;
+        try {
+          data = JSON.parse(rawText);
+        } catch {
+          throw new Error(`Gemini HTTP ${response.status}: ${rawText.slice(0, 300) || '(empty body)'}`);
+        }
+        if (!data.candidates || !data.candidates[0]) {
+          throw new Error(data.error?.message || "Gemini returned no response: " + JSON.stringify(data));
+        }
+        aiScript = data.candidates[0].content.parts[0].text;
+
+      } else if (mode === "intro") {
+        // 4b. The default 6-minute introductory episode — fixed script, no Gemini call needed
+        aiScript = INTRO_SCRIPT;
+
+      } else {
+        // 4c. Standalone question (no intro playing)
+        if (!env.GEMINI_API_KEY) {
+          throw new Error("GEMINI_API_KEY secret is not set on this Worker.");
+        }
+        const prompt = `You are two funny, energetic AI podcast hosts named Alex and Sam.
 Review this profile data about Fauzan: "${fauzanProfile}".
 A website visitor just asked this question: "${question}".
 Have a brief, 2-sentence dialogue answering the question directly based on his profile.
@@ -43,28 +84,25 @@ Format it strictly like this:
 Alex: [response]
 Sam: [response]`;
 
-      // 5. Generate the dialogue script with the text model
-      const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${env.GEMINI_API_KEY.trim()}`;
+        const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${env.GEMINI_API_KEY.trim()}`;
+        const response = await fetch(geminiUrl, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
+        });
 
-      const response = await fetch(geminiUrl, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          contents: [{ parts: [{ text: prompt }] }]
-        })
-      });
-
-      const rawText = await response.text();
-      let data;
-      try {
-        data = JSON.parse(rawText);
-      } catch {
-        throw new Error(`Gemini HTTP ${response.status}: ${rawText.slice(0, 300) || '(empty body)'}`);
+        const rawText = await response.text();
+        let data;
+        try {
+          data = JSON.parse(rawText);
+        } catch {
+          throw new Error(`Gemini HTTP ${response.status}: ${rawText.slice(0, 300) || '(empty body)'}`);
+        }
+        if (!data.candidates || !data.candidates[0]) {
+          throw new Error(data.error?.message || "Gemini returned no response: " + JSON.stringify(data));
+        }
+        aiScript = data.candidates[0].content.parts[0].text;
       }
-      if (!data.candidates || !data.candidates[0]) {
-        throw new Error(data.error?.message || "Gemini returned no response: " + JSON.stringify(data));
-      }
-      const aiScript = data.candidates[0].content.parts[0].text;
 
       // 6. Perform the script as speech with Google Cloud Text-to-Speech (one voice per host)
       const VOICE_NAMES = {
@@ -138,3 +176,30 @@ Sam: [response]`;
     }
   },
 };
+
+// The default ~6-minute introductory episode, used when a visitor hits "Start Listening"
+const INTRO_SCRIPT = `Alex: Hey everyone, welcome back to the show — today we're doing something a little different. We're putting one of our favourite case studies, Fauzan Battiwala, under the microscope.
+Sam: I love this one. It's basically an eight-year tour through banking, CRM, automation, and now full-blown AI deployment. Where do we even start?
+Alex: Right at the beginning. Fauzan's career kicks off at Citibank US, working through TCS in Mumbai, handling high-stakes escalations — the cases nobody else could close.
+Sam: That's such a classic origin story. High-pressure customer ops, real money, real regulations. He came out of that with two habits that follow him everywhere: chase the root cause, and trust the data trail.
+Alex: And he didn't waste time. Around the same period, he led a Six Sigma DMAIC project for Hello Mineral Water in Mumbai — a company that was genuinely struggling.
+Sam: The numbers on that one are wild. NPS went from twenty-eight percent to ninety-three percent. SLA compliance jumped from thirty-four to eighty-eight percent. In six months.
+Alex: That's not a small tweak, that's a turnaround. And it set the template he reuses for the rest of his career — measure it, diagnose it, redesign it, and bring the people along with the change.
+Sam: Fast forward to Hinduja Global Solutions Interactive, end of twenty-eighteen through twenty-twenty. Now he's operating at enterprise scale.
+Alex: We're talking Disney Plus, Toyota India, Aster DM Healthcare, Walmart and Sam's Club. He led a zero-downtime migration of Disney Plus's CRM from Salesforce to Freshdesk.
+Sam: Zero downtime, for a brand like that — that's a systems-thinking achievement, not just a project tick-box. He also pushed first-contact resolution from forty-six to sixty-two percent in three months.
+Alex: Then he moves to Dubai. Towr Portal, twenty twenty-one to twenty twenty-two — this is where he starts building automation instead of just managing it.
+Sam: He set up Zoho CRM workflows that auto-converted web enquiries into sales orders with instant alerts, plus a one-day SLA enforced automatically. B2B acquisition grew by a hundred and twenty percent.
+Alex: And monthly orders went from around fifty to fifteen hundred. One person, building systems that did the work of a whole coordination team.
+Sam: Next stop, LiftMyCar, twenty twenty-two to twenty twenty-four. This is where he ships his first production conversational AI — a three-sixty-io chatbot across WhatsApp, web, and social.
+Alex: Full lifecycle ownership — decision trees, fallback handling, escalation logic, human handoff. Plus he redesigned the booking journey from eight steps down to four or five.
+Sam: And then — Kobet Technologies DMCC. This is the big one. Fourteen gift card trading apps, seven hundred thousand active users per app. Fauzan becomes the company's AI deployment lead.
+Alex: He evaluated AI CRM platforms costing up to fifty thousand dollars a month, ran a live proof of concept, and picked Crisp at three hundred dollars a month. That's an eighty-three percent cost reduction.
+Sam: Twenty AI agents, live in production, with compliance approval and canary rollouts. Thirty percent reduction in human agent workload, and a three to seven percent uplift across CSAT and NPS.
+Alex: He also built a Google Cloud Vision OCR pipeline that cut failed transactions by fifteen to twenty percent, and worked on a multi-layer fraud detection stack — CLIP embeddings in Pinecone, finding duplicate cards across all fourteen apps in under fifty milliseconds.
+Sam: And on his own time, he's built a maritime document automation pipeline that's eighty-three percent faster, HarbourMind — a FastAPI and Gemini service with a thirty-two times speedup — and an end-to-end encrypted messaging app.
+Alex: MBA from Welingkar Institute, Six Sigma Green Belt, and a philosophy that's stayed consistent the whole way through — find the truth in the data, redesign around it, automate what should be automated, and prove it with numbers.
+Sam: Honestly, that's the through-line of this whole episode. The tools changed completely over eight years — the discipline never did.
+Alex: If you've got a question for Fauzan, type it in below — we'll grab it live and dig in right here on the show.
+Sam: Thanks for listening, everyone — back after this question!`;
+
