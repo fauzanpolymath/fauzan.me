@@ -830,7 +830,7 @@ function playPodcastAudio(audioBase64){
       document.getElementById('heroStopBtn').style.display = 'none';
     };
   }
-  podcastAudioPlayer.src = `data:audio/wav;base64,${audioBase64}`;
+  podcastAudioPlayer.src = `data:audio/mpeg;base64,${audioBase64}`;
   podcastAudioPlayer.play();
 }
 
