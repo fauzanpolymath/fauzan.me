@@ -38,19 +38,42 @@ Independently, he built a maritime document automation pipeline (83% faster proc
       const prompt = `You are two funny, energetic AI podcast hosts named Alex and Sam.
 Review this profile data about Fauzan: "${fauzanProfile}".
 A website visitor just asked this question: "${question}".
-Improvise a brief, 2-sentence dialogue answering the question directly based on his profile, then perform it as speech.
+Have a brief, 2-sentence dialogue answering the question directly based on his profile.
 Format it strictly like this:
 Alex: [response]
 Sam: [response]`;
 
-      // 5. Send everything to Gemini's TTS model in one go — it writes AND performs the dialogue
+      // 5. Generate the dialogue script with the text model
+      const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${env.GEMINI_API_KEY.trim()}`;
+
+      const response = await fetch(geminiUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: prompt }] }]
+        })
+      });
+
+      const rawText = await response.text();
+      let data;
+      try {
+        data = JSON.parse(rawText);
+      } catch {
+        throw new Error(`Gemini HTTP ${response.status}: ${rawText.slice(0, 300) || '(empty body)'}`);
+      }
+      if (!data.candidates || !data.candidates[0]) {
+        throw new Error(data.error?.message || "Gemini returned no response: " + JSON.stringify(data));
+      }
+      const aiScript = data.candidates[0].content.parts[0].text;
+
+      // 6. Perform the script as speech with the TTS model
       const ttsUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-tts:generateContent?key=${env.GEMINI_API_KEY.trim()}`;
 
       const ttsResponse = await fetch(ttsUrl, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          contents: [{ parts: [{ text: prompt }] }],
+          contents: [{ parts: [{ text: `TTS the following conversation between Alex and Sam:\n${aiScript}` }] }],
           generationConfig: {
             responseModalities: ["AUDIO"],
             speechConfig: {
