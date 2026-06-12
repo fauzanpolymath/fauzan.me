@@ -268,7 +268,13 @@ Sam: [response]`;
         })
       });
 
-      const data = await response.json();
+      const rawText = await response.text();
+      let data;
+      try {
+        data = JSON.parse(rawText);
+      } catch {
+        throw new Error(`Gemini HTTP ${response.status}: ${rawText.slice(0, 300) || '(empty body)'}`);
+      }
       if (!data.candidates || !data.candidates[0]) {
         throw new Error(data.error?.message || "Gemini returned no response: " + JSON.stringify(data));
       }
