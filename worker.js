@@ -21,7 +21,15 @@ export default {
 
       // 3. This is the background information about you!
       // (You can tell Claude to add more details about your achievements here)
-      const fauzanProfile = "Fauzan is a talented developer who builds awesome web projects. His website is fauzan.me.";
+      const fauzanProfile = `Fauzan Battiwala is a Dubai-based operations and AI professional with roughly eight years of experience spanning banking escalations, contact-centre transformation, mobility platforms, and fintech marketplaces. He started in high-stakes customer operations at Citibank US (via TCS, Mumbai, 2016-2017), then led a Six Sigma DMAIC project for Hello Mineral Water (Oct 2016-Mar 2017) that raised NPS from 28% to 93% and SLA compliance from 34% to 88%.
+
+At Hinduja Global Solutions Interactive (Dec 2018-Dec 2020), he managed enterprise CRM operations for Disney+, Toyota India, Aster DM Healthcare, and Walmart/Sam's Club, leading a zero-downtime Salesforce-to-Freshdesk migration for Disney+ and improving first-contact resolution from 46% to 62%.
+
+At Towr Portal (Feb 2021-Apr 2022) in Dubai, he built Zoho CRM automation that grew B2B acquisition by 120% and scaled monthly orders from ~50 to 1,500. At LiftMyCar (Apr 2022-Jan 2024), he deployed a 360.io conversational AI chatbot across WhatsApp, web, and social channels, integrated Zoho CRM with Stripe, and redesigned the booking journey from 8 steps to 4-5.
+
+At Kobet Technologies DMCC (Oct 2024-Mar 2026), a fintech marketplace with 14 gift card trading apps and 700,000 active users per app, Fauzan became the AI deployment lead: he selected and deployed Crisp AI, running 20 AI agents in production with compliance approval and canary rollouts, achieving an 83% cost reduction, 30% reduction in human agent workload, and 3-7% uplift in CSAT/NPS. He also designed a Google Cloud Vision OCR pipeline that reduced failed transactions by 15-20%, and worked on a multi-layer fraud detection stack using Claude/GPT-4o Vision Agents, CLIP embeddings in Pinecone for sub-50ms semantic duplicate detection across 14 apps, and LangGraph orchestration with Kafka.
+
+Independently, he built a maritime document automation pipeline (83% faster processing), HarbourMind (a FastAPI + Gemini 2.5 Flash service with a 32x async speedup), and an end-to-end encrypted React Native messaging app. He holds an MBA from Welingkar Institute, a BBA in Computer Applications, and is a Six Sigma Green Belt. His core philosophy: find the truth in the data, redesign the system around it, automate what should be automated, govern what you automate, and prove the result with numbers. His website is fauzan.me.`;
 
       // 4. Craft the secret instructions for Gemini
       const prompt = `You are two funny, energetic AI podcast hosts named Alex and Sam.
