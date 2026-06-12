@@ -93,9 +93,6 @@ nav{
   font-size:7px;padding-left:2px;flex-shrink:0;
 }
 .hero-listen-dur{color:var(--accent);font-weight:500}
-.hero-listen-row{display:flex;align-items:center;gap:1rem;flex-wrap:wrap;justify-content:center}
-.hero-full-ep-link{font-size:.78rem;color:var(--ink2);text-decoration:underline;text-decoration-color:var(--line)}
-.hero-full-ep-link:hover{color:var(--ink)}
 .hero-ask-row{display:flex;gap:.6rem;margin-top:1rem}
 .hero-ask-input{width:300px;padding:12px 16px;border-radius:100px;border:1px solid var(--line);font-family:var(--ff-sans);font-size:.85rem;background:#fff;color:var(--ink)}
 .hero-ask-input:focus{outline:none;border-color:var(--accent)}
@@ -339,14 +336,11 @@ footer{background:var(--dark);border-top:1px solid rgba(255,255,255,.06);padding
       I'm <strong>Fauzan Battiwala</strong>, a Data &amp; Business Analyst at <strong>Kobet Technology</strong>.
       This site is an experiment in turning case studies into conversations — with a little help from AI.
     </p>
-    <div class="hero-listen-row">
-      <button class="hero-listen-btn" id="heroListenBtn" onclick="toggleIntro()">
-        <span class="hero-listen-icon" id="heroListenIcon">&#9654;</span>
-        <span id="heroListenLabel">Start Listening</span>
-        <span class="hero-listen-dur">&middot; 6 min intro</span>
-      </button>
-      <a class="hero-full-ep-link" href="#podcast">Full episode &middot; 28 mins</a>
-    </div>
+    <button class="hero-listen-btn" id="heroListenBtn" onclick="toggleIntro()">
+      <span class="hero-listen-icon" id="heroListenIcon">&#9654;</span>
+      <span id="heroListenLabel">Start Listening</span>
+      <span class="hero-listen-dur">&middot; 6 min intro</span>
+    </button>
     <div class="hero-ask-row">
       <input class="hero-ask-input" id="heroAskInput" type="text" placeholder="Ask a question about Fauzan…" onkeydown="if(event.key==='Enter')heroAsk()"/>
       <button class="hero-ask-btn" onclick="heroAsk()">Ask</button>
