@@ -44,7 +44,6 @@ Sam: [response]`;
       if (!env.GEMINI_API_KEY) {
         throw new Error("GEMINI_API_KEY secret is not set on this Worker.");
       }
-      throw new Error(`DEBUG key length=${env.GEMINI_API_KEY.length} starts=${env.GEMINI_API_KEY.slice(0,6)} ends=${env.GEMINI_API_KEY.slice(-4)}`);
       const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${env.GEMINI_API_KEY.trim()}`;
 
       const response = await fetch(geminiUrl, {
