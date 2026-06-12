@@ -67,9 +67,13 @@ Sam: [wrap-up]`;
         }
         aiScript = data.candidates[0].content.parts[0].text;
 
-      } else if (mode === "intro") {
-        // 4b. The default 6-minute introductory episode — fixed script, no Gemini call needed
-        aiScript = INTRO_SCRIPT;
+      } else if (mode === "intro_part1") {
+        // 4b. First couple of lines of the intro — generated fast so audio starts almost instantly
+        aiScript = INTRO_SCRIPT_PART1;
+
+      } else if (mode === "intro_part2") {
+        // 4c. The rest of the intro, fetched in parallel while part 1 plays
+        aiScript = INTRO_SCRIPT_PART2;
 
       } else {
         // 4c. Standalone question (no intro playing)
@@ -177,10 +181,13 @@ Sam: [response]`;
   },
 };
 
-// The default ~6-minute introductory episode, used when a visitor hits "Start Listening"
-const INTRO_SCRIPT = `Alex: Hey everyone, welcome back to the show — today we're doing something a little different. We're putting one of our favourite case studies, Fauzan Battiwala, under the microscope.
-Sam: I love this one. It's basically an eight-year tour through banking, CRM, automation, and now full-blown AI deployment. Where do we even start?
-Alex: Right at the beginning. Fauzan's career kicks off at Citibank US, working through TCS in Mumbai, handling high-stakes escalations — the cases nobody else could close.
+// The default ~6-minute introductory episode, used when a visitor hits "Start Listening".
+// Split into two parts so playback can start almost instantly with part 1 while part 2
+// (the bulk of the episode) is generated in parallel.
+const INTRO_SCRIPT_PART1 = `Alex: Hey everyone, welcome back to the show — today we're doing something a little different. We're putting one of our favourite case studies, Fauzan Battiwala, under the microscope.
+Sam: I love this one. It's basically an eight-year tour through banking, CRM, automation, and now full-blown AI deployment. Where do we even start?`;
+
+const INTRO_SCRIPT_PART2 = `Alex: Right at the beginning. Fauzan's career kicks off at Citibank US, working through TCS in Mumbai, handling high-stakes escalations — the cases nobody else could close.
 Sam: That's such a classic origin story. High-pressure customer ops, real money, real regulations. He came out of that with two habits that follow him everywhere: chase the root cause, and trust the data trail.
 Alex: And he didn't waste time. Around the same period, he led a Six Sigma DMAIC project for Hello Mineral Water in Mumbai — a company that was genuinely struggling.
 Sam: The numbers on that one are wild. NPS went from twenty-eight percent to ninety-three percent. SLA compliance jumped from thirty-four to eighty-eight percent. In six months.

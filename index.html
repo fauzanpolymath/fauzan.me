@@ -835,7 +835,7 @@ async function heroAsk(){
 
   // If the intro podcast is currently playing, let it keep playing while we
   // prepare the interrupt — we'll swap to the answer the moment it's ready
-  const interrupting = podcastAudioPlayer && !podcastAudioPlayer.paused && currentAudioMode === 'intro';
+  const interrupting = podcastAudioPlayer && !podcastAudioPlayer.paused && (currentAudioMode === 'intro' || currentAudioMode === 'intro_part1');
 
   btn.disabled = true;
   const loadingInterval = startLoadingMessages();
@@ -863,7 +863,8 @@ async function heroAsk(){
 }
 
 let podcastAudioPlayer = null;
-let currentAudioMode = null; // 'intro' or 'answer'
+let currentAudioMode = null; // 'intro', 'intro_part1', or 'answer'
+let introPart2Promise = null;
 
 async function toggleIntro(){
   const icon = document.getElementById('heroListenIcon');
@@ -871,7 +872,7 @@ async function toggleIntro(){
   const status = document.getElementById('heroAskStatus');
 
   // Resume/pause if intro audio is already loaded
-  if(podcastAudioPlayer && currentAudioMode === 'intro' && podcastAudioPlayer.src){
+  if(podcastAudioPlayer && (currentAudioMode === 'intro' || currentAudioMode === 'intro_part1') && podcastAudioPlayer.src){
     if(podcastAudioPlayer.paused){
       podcastAudioPlayer.play();
       icon.innerHTML = '&#10074;&#10074;';
@@ -886,19 +887,28 @@ async function toggleIntro(){
     return;
   }
 
-  // Otherwise fetch the intro for the first time
+  // Otherwise fetch part 1 of the intro first so playback can start almost instantly,
+  // while part 2 (the bulk of the episode) generates in parallel
   const loadingInterval = startLoadingMessages();
+
+  // Kick off part 2 in the background — don't await yet
+  introPart2Promise = fetch(PODCAST_WORKER_URL, {
+    method: 'POST',
+    headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({mode: 'intro_part2'})
+  }).then(r => r.json());
+
   try {
     const r = await fetch(PODCAST_WORKER_URL, {
       method: 'POST',
       headers: {'Content-Type':'application/json'},
-      body: JSON.stringify({mode: 'intro'})
+      body: JSON.stringify({mode: 'intro_part1'})
     });
     const d = await r.json();
     stopLoadingMessages(loadingInterval);
     if(d.audio){
       status.textContent = '🎙️ On Air: Playing intro...';
-      playPodcastAudio(d.audio, 'intro');
+      playPodcastAudio(d.audio, 'intro_part1');
       icon.innerHTML = '&#10074;&#10074;';
       label.textContent = 'Pause Intro';
     } else {
@@ -910,15 +920,33 @@ async function toggleIntro(){
   }
 }
 
-// Plays base64 mp3 audio returned by the worker. mode is 'intro' or 'answer'
+// Plays base64 mp3 audio returned by the worker. mode is 'intro_part1', 'intro_part2', or 'answer'
 function playPodcastAudio(audioBase64, mode){
   if(!podcastAudioPlayer){
     podcastAudioPlayer = new Audio();
   }
-  currentAudioMode = mode;
-  podcastAudioPlayer.onended = () => {
+  currentAudioMode = mode === 'intro_part2' ? 'intro' : mode;
+  podcastAudioPlayer.onended = async () => {
+    if(mode === 'intro_part1'){
+      // Part 1 finished — wait for part 2 (likely already ready) and continue seamlessly
+      const status = document.getElementById('heroAskStatus');
+      status.textContent = '🎙️ On Air: Playing intro...';
+      try {
+        const d = await introPart2Promise;
+        if(d && d.audio){
+          playPodcastAudio(d.audio, 'intro_part2');
+          return;
+        }
+      } catch(e) {}
+      // Fall through if part 2 failed
+    }
     document.getElementById('heroStopBtn').style.display = 'none';
-    if(mode === 'intro'){
+    if(mode === 'intro_part2'){
+      document.getElementById('heroAskStatus').textContent = '🎉 Intro finished!';
+      document.getElementById('heroListenIcon').innerHTML = '&#9654;';
+      document.getElementById('heroListenLabel').textContent = 'Start Listening';
+      currentAudioMode = null;
+    } else if(mode === 'intro_part1'){
       document.getElementById('heroAskStatus').textContent = '🎉 Intro finished!';
       document.getElementById('heroListenIcon').innerHTML = '&#9654;';
       document.getElementById('heroListenLabel').textContent = 'Start Listening';
