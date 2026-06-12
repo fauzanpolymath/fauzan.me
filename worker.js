@@ -35,7 +35,7 @@ Independently, he built a maritime document automation pipeline (83% faster proc
       const prompt = `You are two funny, energetic AI podcast hosts named Alex and Sam.
 Review this profile data about Fauzan: "${fauzanProfile}".
 A website visitor just asked this question: "${question}".
-Have a brief, 4-sentence dialogue answering the question directly based on his profile.
+Have a brief, 2-sentence dialogue answering the question directly based on his profile.
 Format it strictly like this:
 Alex: [response]
 Sam: [response]`;
