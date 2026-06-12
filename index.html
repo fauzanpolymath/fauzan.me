@@ -100,7 +100,16 @@ nav{
 .hero-ask-btn:hover{opacity:.85}
 .hero-ask-btn:disabled{opacity:.5;cursor:default}
 .hero-stop-btn{background:#C8471A}
-.hero-ask-status{margin-top:.7rem;font-size:.8rem;color:var(--ink2);white-space:pre-line;max-width:520px}
+.hero-ask-status-row{display:flex;align-items:center;gap:.6rem;margin-top:.7rem;max-width:520px}
+.hero-ask-status{font-size:.8rem;color:var(--ink2);white-space:pre-line;margin:0}
+.hero-waveform{display:flex;align-items:center;gap:3px;height:18px;flex-shrink:0}
+.hero-waveform span{display:block;width:3px;height:100%;background:var(--accent);border-radius:2px;animation:hero-wave 0.9s ease-in-out infinite}
+.hero-waveform span:nth-child(1){animation-delay:-0.8s}
+.hero-waveform span:nth-child(2){animation-delay:-0.6s}
+.hero-waveform span:nth-child(3){animation-delay:-0.4s}
+.hero-waveform span:nth-child(4){animation-delay:-0.2s}
+.hero-waveform span:nth-child(5){animation-delay:0s}
+@keyframes hero-wave{0%,100%{transform:scaleY(0.3)}50%{transform:scaleY(1)}}
 .hero-divider{
   padding:1.5rem 0;text-align:center;
   font-size:.68rem;letter-spacing:.12em;text-transform:uppercase;
@@ -337,7 +346,12 @@ footer{background:var(--dark);border-top:1px solid rgba(255,255,255,.06);padding
       <button class="hero-ask-btn" onclick="heroAsk()">Ask</button>
       <button class="hero-ask-btn hero-stop-btn" id="heroStopBtn" onclick="stopPodcastAudio()" style="display:none">Stop</button>
     </div>
-    <p class="hero-ask-status" id="heroAskStatus"></p>
+    <div class="hero-ask-status-row">
+      <div class="hero-waveform" id="heroWaveform" style="display:none">
+        <span></span><span></span><span></span><span></span><span></span>
+      </div>
+      <p class="hero-ask-status" id="heroAskStatus"></p>
+    </div>
   </div>
   <div class="hero-divider">Scroll to explore</div>
 </section>
@@ -796,7 +810,22 @@ async function heroAsk(){
   if(!q){ status.textContent = 'Please type a question first!'; return; }
 
   btn.disabled = true;
-  status.textContent = '🤖 Robot hosts are thinking and recording...';
+  const waveform = document.getElementById('heroWaveform');
+  waveform.style.display = 'flex';
+
+  const loadingMessages = [
+    '🎙️ Booking the studio...',
+    '☕ Pouring coffee for Alex and Sam...',
+    '🤖 Robot hosts are thinking...',
+    '🎚️ Adjusting the mics...',
+    '✂️ Final edits...',
+  ];
+  let msgIndex = 0;
+  status.textContent = loadingMessages[0];
+  const loadingInterval = setInterval(() => {
+    msgIndex = (msgIndex + 1) % loadingMessages.length;
+    status.textContent = loadingMessages[msgIndex];
+  }, 2200);
 
   try {
     const r = await fetch(PODCAST_WORKER_URL, {
@@ -805,6 +834,8 @@ async function heroAsk(){
       body: JSON.stringify({question: q})
     });
     const d = await r.json();
+    clearInterval(loadingInterval);
+    waveform.style.display = 'none';
     if(d.audio){
       status.textContent = '🎙️ On Air: Playing Podcast...';
       document.getElementById('heroStopBtn').style.display = 'inline-block';
@@ -813,6 +844,8 @@ async function heroAsk(){
       status.textContent = d.error || "❌ The robots gave an empty response.";
     }
   } catch(e) {
+    clearInterval(loadingInterval);
+    waveform.style.display = 'none';
     status.textContent = '❌ Oh no! The robots got confused. Try again.';
   } finally {
     btn.disabled = false;
